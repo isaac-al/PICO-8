@@ -138,7 +138,6 @@ end
 
 function _draw()
  cls()
- rectfill(0,0,127,127,13)
  map(0,0)
  foreach(actor,draw_actor)
  --debug(10,120)

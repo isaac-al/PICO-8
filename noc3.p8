@@ -4,7 +4,8 @@ __lua__
 --gravphysics
 	
 dbg = " "
-actor = {}
+mover = {}
+attractor = {}
 perim = 127
 
 --grav = {x = 0, y = 0.05}
@@ -13,136 +14,104 @@ gconst = 0
 
 --drag_coef = 0.001
 
-function make_actor(px,py,m,col)
- a={}
- a.pos   = {x = px,y = py}
- a.accel = {x = 0,y = 0}
- a.grav  = {x = 0,y = 0}
- a.vel   = {x = 0,y = 0}
- a.mass  = m
- a.spr   = 0
- a.frame = 0
- a.t     = 0
- a.col   = col
+function calculate_grav(m)
+ local force = vsub(a1.pos,a2.pos)
+ local distance = vmag(force)
+ 
+ s = (gconst * a1.mass * a2.mass) /
+     (distance * distance)
+ force = vnorm(force)
+ force = vmult(force,s)
+ a1.grav = force
+ return a1.grav
+end
+
+function make_attractor(px,py,m,col)
+ at.attract = function (m)
+  
+ end
+end
+
+function make_mover(px,py,m,col)
+ m={}
+ m.pos   = {x = px,y = py}
+ m.accel = {x = 0,y = 0}
+ m.grav  = {x = 0,y = 0}
+ m.vel   = {x = 0,y = 0}
+ m.mass  = m
+ m.spr   = 0
+ m.frame = 0
+ m.t     = 0
+ m.col   = col
 
  -- half-width and half-height
  -- slightly less than 0.5 so
  -- that will fit through 1-wide
  -- holes.
- a.w = 0.5
- a.h = 0.5
+ m.w = 0.5
+ m.h = 0.5
 
  --add to actor list
- add(actor,a)
- return a
+ add(mover,m)
+ return m
 end
 
 function _init()
-	--ball = make_actor(1,1,3,6)
-	--ball2 = make_actor(1,1,5,5)
- ball3 = make_actor(10,10,2,7)
- ball4 = make_actor(64,64,8,0)
+ ball1 = make_mover(10,10,2,7)
+ ball2 = make_mover(64,64,8,0)
 end
 
-function wall_bounce(a)
- if a.pos.x >= 126 or
-    a.pos.x <= 0.5 then
-  a.accel.x = 0
-  a.vel.x *= -1 
+function wall_bounce(m)
+ if m.pos.x >= 126 or
+    m.pos.x <= 0.5 then
+  m.accel.x = 0
+  m.vel.x *= -1 
     
- else if a.pos.y >= 126 or
-         a.pos.y <= 0.5 then
-  a.accel.y = 0
-  a.vel.y *= -1
- 
- --else if a.pos.x >= 15.5 and
-   --      a.pos.y >= 15.5 or
-   --      a.pos.x <= 0.5 and
-   --      a.pos.y <= 0.5 then
-  --a.accel = vmult(a.accel,0)
-  --a.vel = vmult(a.vel, -1)
+ else if m.pos.y >= 126 or
+         m.pos.y <= 0.5 then
+  m.accel.y = 0
+  m.vel.y *= -1
   end
  end
 end
 
-function apply_force(a,force)
+function apply_force(m,force)
  local f = {x = force.x,
             y = force.y}
- f = vdiv(f, a.mass)
+ f = vdiv(f, m.mass)
  
- a.accel = vadd(a.accel, f)
- --a.accel += fx
- --a.accel += fy
+ m.accel = vadd(m.accel, f)
 end
 
-function reset_accel(a)
- a.accel = vmult(a.accel, 0)
- --a.accel.x = 0
- --a.accel.y = 0
+function reset_accel(m)
+ m.accel = vmult(m.accel, 0)
 end
 
-function apply_veloc(a)
- a.vel = vadd(a.vel, a.accel)
- dbg = a.vel.y
- a.pos = vadd(a.pos, a.vel)
+function apply_veloc(m)
+ m.vel = vadd(m.vel, m.accel)
+ dbg = m.vel.y
+ m.pos = vadd(m.pos, m.vel)
 end
 
---function calculate_drag(a)
--- local s = vmag(a.vel)
--- local drag_mag = drag_coef * s * s                 
- 
--- a.drag = vadd(a.drag,a.vel)
--- a.drag = vmult(a.drag,-1)
- --a.drag = vnorm(a.drag)
--- a.drag = vmult(a.drag,drag_mag)
--- return a.drag
---end
-
-function calculate_grav(a1,a2)
- local force = vsub(a1.pos,a2.pos)
- local distance = vmag(force)
- 
- m = (gconst * a1.mass * a2.mass) /
-     (distance * distance)
- force = vnorm(force)
- force = vmult(m)
-end
-
-function calculate_forces(a)
- --apply_force(a,calculate_drag(a))
- --apply_force(a,wind)
- --apply_force(a,vmult(grav,a.mass)) 
+function calculate_forces(m)
+ apply_force(m,calculate_grav(ball1,ball2))
 end
 
 function _update60()
- foreach(actor,calculate_forces)
- foreach(actor,wall_bounce)
- foreach(actor,apply_veloc)
- foreach(actor,reset_accel)
+ foreach(mover,calculate_forces)
+ foreach(mover,apply_veloc)
+ foreach(mover,reset_accel)
 end
 
-function draw_actor(a)
-	--local sx = (a.pos.x * 8) - 4
- --local sy = (a.pos.y * 8) - 4
- 
- --spr(a.spr + a.frame, sx, sy)
- circfill(a.pos.x,a.pos.y,a.mass,a.col)
+function draw_mover(m)
+ circfill(m.pos.x,m.pos.y,m.mass,m.col)
  print(dbg, 0, 120)
- --add(dbg," accely "..a.accel.y)
- --add(dbg," accelx "..a.accel.x)
- --add(dbg," vely "..a.vel.y)
- --add(dbg," velx "..a.vel.x)
- --ircfill(sx,sy,2,13)
 end
 
 function _draw()
  cls()
- rectfill(0,0,127,127,13)
  map(0,0)
- foreach(actor,draw_actor)
- --debug(10,120)
- --circfill(ball.x,ball.y,6,13)
- --rect(0,0,127,127,15)
+ foreach(mover,draw_mover)
 end
 
 function vadd(v1, v2)
@@ -175,14 +144,6 @@ function vnorm(v)
  
  return v
 end
-
---function debug(x,y)
- --local space = 0
- --for t in all(dbg) do
- --print(t,0+space,y,2)
- --space += 40
- --end 
---end
 __gfx__
 70000007dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 07000070dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
