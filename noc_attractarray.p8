@@ -5,40 +5,30 @@ __lua__
 	
 dbg = " "
 mover = {}
-attractor = {}
 perim = 127
 
 --grav = {x = 0, y = 0.05}
-gconst = 0
+gconst = 0.25
 --wind = {x = 0.01, y = 0}
 
 --drag_coef = 0.001
 
-function calculate_grav(m)
- local force = vsub(a1.pos,a2.pos)
- local distance = vmag(force)
+function make_attractor(px,py,ma,col)
+ a={}
+ a.pos = {x = px,y = py} 
+ a.mass = ma
+ a.col = col
  
- s = (gconst * a1.mass * a2.mass) /
-     (distance * distance)
- force = vnorm(force)
- force = vmult(force,s)
- a1.grav = force
- return a1.grav
+ return a
 end
 
-function make_attractor(px,py,m,col)
- at.attract = function (m)
-  
- end
-end
-
-function make_mover(px,py,m,col)
+function make_mover(px,py,ma,col)
  m={}
  m.pos   = {x = px,y = py}
  m.accel = {x = 0,y = 0}
  m.grav  = {x = 0,y = 0}
  m.vel   = {x = 0,y = 0}
- m.mass  = m
+ m.mass  = ma
  m.spr   = 0
  m.frame = 0
  m.t     = 0
@@ -51,16 +41,18 @@ function make_mover(px,py,m,col)
  m.w = 0.5
  m.h = 0.5
 
- --add to actor list
+ --add to mover list
  add(mover,m)
  return m
 end
 
 function _init()
- ball1 = make_mover(10,10,2,7)
- ball2 = make_mover(64,64,8,0)
+ ball1 = make_mover(68,60,4,7)
+ ball2 = make_mover(68,68,6,6)
+ ball2.vel.x -= 0.6
+ ball3 = make_mover(60,60,2,5)
+ --att = make_attractor(64,64,10,0)
 end
-
 function wall_bounce(m)
  if m.pos.x >= 126 or
     m.pos.x <= 0.5 then
@@ -74,6 +66,21 @@ function wall_bounce(m)
   end
  end
 end
+
+function attract(a,m)
+ local force = vsub(a.pos,m.pos)
+ local dist = vmag(force)
+ dist = mid(dist,3,7)
+ --dbg = dist
+ --mid(dist,5,10)
+ force = vnorm(force)
+ s = (gconst * a.mass * m.mass) / (dist * dist)
+ --dbg = s
+ force = vmult(force,s)
+ --dbg = " "..force.x.. " "..force.y
+ return force  
+end
+
 
 function apply_force(m,force)
  local f = {x = force.x,
@@ -89,15 +96,20 @@ end
 
 function apply_veloc(m)
  m.vel = vadd(m.vel, m.accel)
- dbg = m.vel.y
  m.pos = vadd(m.pos, m.vel)
 end
 
 function calculate_forces(m)
- apply_force(m,calculate_grav(ball1,ball2))
+ for i in all(mover) do
+  if (i != m) then
+  m.grav = attract(i,m) end
+ end
+ dbg = " "..m.grav.x.. " "..m.grav.y
+ apply_force(m,m.grav)
 end
 
 function _update60()
+ foreach(mover,wall_bounce)
  foreach(mover,calculate_forces)
  foreach(mover,apply_veloc)
  foreach(mover,reset_accel)
@@ -105,13 +117,18 @@ end
 
 function draw_mover(m)
  circfill(m.pos.x,m.pos.y,m.mass,m.col)
- print(dbg, 0, 120)
+end
+
+function draw_att(a)
+ circfill(a.pos.x,a.pos.y,a.mass,a.col)
 end
 
 function _draw()
  cls()
  map(0,0)
  foreach(mover,draw_mover)
+-- draw_att(att)
+ print(dbg, 0, 120)
 end
 
 function vadd(v1, v2)
