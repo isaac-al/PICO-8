@@ -2,38 +2,29 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 --gravphysics
+
+pi = 3.14159
 	
 dbg = " "
 mover = {}
 perim = 127
 
---grav = {x = 0, y = 0.05}
-gconst = 0.1
---wind = {x = 0.01, y = 0}
-
---drag_coef = 0.001
-
-function make_attractor(px,py,ma,col)
- a={}
- a.pos = {x = px,y = py} 
- a.mass = ma
- a.col = col
- 
- return a
-end
+gravity = {x=0,y=0.01}
 
 function make_mover(px,py,ma,col)
  m={}
  m.pos   = {x = px,y = py}
- m.accel = {x = 0.2,y = -0.2}
- m.grav  = {x = 0,y = 0}
  m.vel   = {x = 0,y = 0}
+ m.angle = {x = 0,y = 0}
  m.mass  = ma
- m.spr   = 0
- m.frame = 0
- m.t     = 0
+ m.amp   = {x = 0, y = 0}
  m.col   = col
-
+ m.origin = {x = 0, y = 0}
+ m.ang = 0
+ m.angvel = 0
+ m.angaccel = 0
+ m.rad = 64
+ m.damping = 0.99
  -- half-width and half-height
  -- slightly less than 0.5 so
  -- that will fit through 1-wide
@@ -47,68 +38,31 @@ function make_mover(px,py,ma,col)
 end
 
 function _init()
- ball1 = make_mover(40,40,4,7)
- ball2 = make_mover(10,90,6,6)
- ball2.vel.x -= 0.6
- ball3 = make_mover(18,10,2,5)
- att = make_attractor(64,64,10,0)
-end
-function wall_bounce(m)
- if m.pos.x >= 126 or
-    m.pos.x <= 0.5 then
-  m.accel.x = 0
-  m.vel.x *= -1 
-    
- else if m.pos.y >= 126 or
-         m.pos.y <= 0.5 then
-  m.accel.y = 0
-  m.vel.y *= -1
-  end
+
+ for i = 1,1 do
+  ball = make_mover(64,64,8,0)
+  ball.origin = {x = 64,y = 0} 
  end
 end
 
-function attract(a,m)
- local force = vsub(a.pos,m.pos)
- local dist = vmag(force)
- dist = mid(dist,2,10)
- force = vnorm(force)
- s = (gconst * a.mass * m.mass) / (dist * dist)
- force = vmult(force,s)
- 
- return force  
+function update_mover(m)
+ m.angle = vadd(m.angle,m.vel)
 end
 
-
-function apply_force(m,force)
- local f = {x = force.x,
-            y = force.y}
- f = vdiv(f, m.mass)
- 
- m.accel = vadd(m.accel, f)
-end
-
-function reset_accel(m)
- m.accel = vmult(m.accel, 0)
-end
-
-function apply_veloc(m)
- m.vel = vadd(m.vel, m.accel)
- m.pos = vadd(m.pos, m.vel)
-end
-
-function calculate_forces(m)
- m.grav = attract(att,m)
- apply_force(m,m.grav)
-end
 
 function _update60()
- foreach(mover,calculate_forces)
- foreach(mover,apply_veloc)
- foreach(mover,reset_accel)
+ foreach(mover,update_mover) 
+ fr += 1
 end
 
+fr = 2000
+period = 500
+origin = 64
+
 function draw_mover(m)
- circfill(m.pos.x,m.pos.y,m.mass,m.col)
+ 
+ line(m.origin.x,m.origin.y,m.pos.x,m.pos.y,0)
+ circfill(m.pos.x,m.pos.y,m.mass,m.col) 
 end
 
 function draw_att(a)
@@ -118,9 +72,9 @@ end
 function _draw()
  cls()
  map(0,0)
- draw_att(att)
  foreach(mover,draw_mover)
-  --print(dbg, 0, 120)
+-- draw_att(att)
+ print(dbg, 0, 120)
 end
 
 function vadd(v1, v2)

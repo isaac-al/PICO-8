@@ -2,36 +2,19 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 --gravphysics
+
+pi = 3.14159
 	
 dbg = " "
 mover = {}
 perim = 127
 
---grav = {x = 0, y = 0.05}
-gconst = 0.1
---wind = {x = 0.01, y = 0}
-
---drag_coef = 0.001
-
-function make_attractor(px,py,ma,col)
- a={}
- a.pos = {x = px,y = py} 
- a.mass = ma
- a.col = col
- 
- return a
-end
-
 function make_mover(px,py,ma,col)
  m={}
  m.pos   = {x = px,y = py}
- m.accel = {x = 0.2,y = -0.2}
- m.grav  = {x = 0,y = 0}
  m.vel   = {x = 0,y = 0}
  m.mass  = ma
- m.spr   = 0
- m.frame = 0
- m.t     = 0
+ m.amp   = {x = 0, y = 0}
  m.col   = col
 
  -- half-width and half-height
@@ -47,68 +30,33 @@ function make_mover(px,py,ma,col)
 end
 
 function _init()
- ball1 = make_mover(40,40,4,7)
- ball2 = make_mover(10,90,6,6)
- ball2.vel.x -= 0.6
- ball3 = make_mover(18,10,2,5)
- att = make_attractor(64,64,10,0)
-end
-function wall_bounce(m)
- if m.pos.x >= 126 or
-    m.pos.x <= 0.5 then
-  m.accel.x = 0
-  m.vel.x *= -1 
-    
- else if m.pos.y >= 126 or
-         m.pos.y <= 0.5 then
-  m.accel.y = 0
-  m.vel.y *= -1
-  end
- end
-end
-
-function attract(a,m)
- local force = vsub(a.pos,m.pos)
- local dist = vmag(force)
- dist = mid(dist,2,10)
- force = vnorm(force)
- s = (gconst * a.mass * m.mass) / (dist * dist)
- force = vmult(force,s)
- 
- return force  
-end
-
-
-function apply_force(m,force)
- local f = {x = force.x,
-            y = force.y}
- f = vdiv(f, m.mass)
- 
- m.accel = vadd(m.accel, f)
-end
-
-function reset_accel(m)
- m.accel = vmult(m.accel, 0)
-end
-
-function apply_veloc(m)
- m.vel = vadd(m.vel, m.accel)
- m.pos = vadd(m.pos, m.vel)
-end
-
-function calculate_forces(m)
- m.grav = attract(att,m)
- apply_force(m,m.grav)
+ cls()
+ ball1 = make_mover(0,64,0.1,7)
+ ball2 = make_mover(0,64,0.1,8)
+ ball1.amp.y = 16
+ ball2.amp.y = 16
 end
 
 function _update60()
- foreach(mover,calculate_forces)
- foreach(mover,apply_veloc)
- foreach(mover,reset_accel)
+ fr += 1
 end
 
+fr = 0
+period = 1000
+
+even = 0
+
 function draw_mover(m)
+ m.pos.x += 0.3
+ 
+ if even % 2 == 0 then
+  m.pos.y = 64 + (m.amp.y * sin((pi*2)*fr/period))
+ else
+  m.pos.y = 64 + (m.amp.y * cos((pi*2)*fr/period)) 
+ end
+ --col = rnd(17) + 1
  circfill(m.pos.x,m.pos.y,m.mass,m.col)
+ even += 1
 end
 
 function draw_att(a)
@@ -116,11 +64,11 @@ function draw_att(a)
 end
 
 function _draw()
- cls()
- map(0,0)
- draw_att(att)
+ --cls()
+ --map(0,0)
  foreach(mover,draw_mover)
-  --print(dbg, 0, 120)
+ -- draw_att(att)
+ print(dbg, 0, 120)
 end
 
 function vadd(v1, v2)

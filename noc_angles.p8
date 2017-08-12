@@ -7,25 +7,10 @@ dbg = " "
 mover = {}
 perim = 127
 
---grav = {x = 0, y = 0.05}
-gconst = 0.1
---wind = {x = 0.01, y = 0}
-
---drag_coef = 0.001
-
-function make_attractor(px,py,ma,col)
- a={}
- a.pos = {x = px,y = py} 
- a.mass = ma
- a.col = col
- 
- return a
-end
-
 function make_mover(px,py,ma,col)
  m={}
  m.pos   = {x = px,y = py}
- m.accel = {x = 0.2,y = -0.2}
+ m.accel = {x = 0,y = 0}
  m.grav  = {x = 0,y = 0}
  m.vel   = {x = 0,y = 0}
  m.mass  = ma
@@ -47,12 +32,9 @@ function make_mover(px,py,ma,col)
 end
 
 function _init()
- ball1 = make_mover(40,40,4,7)
- ball2 = make_mover(10,90,6,6)
- ball2.vel.x -= 0.6
- ball3 = make_mover(18,10,2,5)
- att = make_attractor(64,64,10,0)
+ ball1 = make_mover(64,64,4,7)
 end
+
 function wall_bounce(m)
  if m.pos.x >= 126 or
     m.pos.x <= 0.5 then
@@ -66,18 +48,6 @@ function wall_bounce(m)
   end
  end
 end
-
-function attract(a,m)
- local force = vsub(a.pos,m.pos)
- local dist = vmag(force)
- dist = mid(dist,2,10)
- force = vnorm(force)
- s = (gconst * a.mass * m.mass) / (dist * dist)
- force = vmult(force,s)
- 
- return force  
-end
-
 
 function apply_force(m,force)
  local f = {x = force.x,
@@ -96,18 +66,30 @@ function apply_veloc(m)
  m.pos = vadd(m.pos, m.vel)
 end
 
+r = 1
+
+theta = 0
+
 function calculate_forces(m)
- m.grav = attract(att,m)
- apply_force(m,m.grav)
+
 end
 
 function _update60()
- foreach(mover,calculate_forces)
- foreach(mover,apply_veloc)
- foreach(mover,reset_accel)
+ --foreach(mover,wall_bounce)
+ --foreach(mover,calculate_forces)
+ --foreach(mover,apply_veloc)
+ --foreach(mover,reset_accel)
 end
-
+origin = 64
 function draw_mover(m)
+ local dist = 32
+ 
+ m.pos.x = origin+(16+dist)*cos(theta)
+ m.pos.y = origin+(16+dist)*sin(theta)
+ theta -= 0.006
+ 
+ --if theta > 1 then theta = -1 end 
+ line(64,64,m.pos.x,m.pos.y,0)
  circfill(m.pos.x,m.pos.y,m.mass,m.col)
 end
 
@@ -118,9 +100,9 @@ end
 function _draw()
  cls()
  map(0,0)
- draw_att(att)
  foreach(mover,draw_mover)
-  --print(dbg, 0, 120)
+-- draw_att(att)
+ print(dbg, 0, 120)
 end
 
 function vadd(v1, v2)
