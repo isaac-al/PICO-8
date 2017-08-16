@@ -4,100 +4,192 @@ __lua__
 --gravphysics
 
 pi = 3.14159
-	
+
+tparticle = 0
+
 dbg = " "
-mover = {}
+emitter = {}
+ball = {}
 perim = 127
+grav = {x = 0, y = -0.5}
 
-grav = 0.1
+function make_ball(px,py,ma,c)
+ b = {}
+ b.pos   = {x = px,y = py}
+ b.accel = {x = 0.5,y = 0}
+ b.vel   = {x = 0,y = 0}
+ b.mass  = ma
+ b.drag  = 0.99 
+ b.col   = c
+ b.update = function(b)
+  calculate_forces(b)
+	apply_veloc(b)
+	reset_accel(b)
+	wall_bounce(b)
+ end
 
-function make_mover(px,py,ma,col)
- m={}
- m.pos   = {x = px,y = py}
- m.vel   = {x = 0,y = 0}
- m.angle = {x = 0,y = 0}
- m.mass  = ma
- m.amp   = {x = 0, y = 0}
- m.col   = col
- m.origin = {x = 0, y = 0}
- m.ang = 0
- m.angvel = 0
- m.angaccel = 0
- m.len = 0
- m.damping = 0.999
- -- half-width and half-height
- -- slightly less than 0.5 so
- -- that will fit through 1-wide
- -- holes.
- m.w = 0.5
- m.h = 0.5
+ b.draw = function(b)
+  circfill(b.pos.x,b.pos.y,b.mass,b.col)
+ end
+ add(ball,b)
+ return b
+end
 
- --add to mover list
- add(mover,m)
- return m
+function make_emitter(px,py)
+ em = {}
+ em.pos = {x = px,y = py}
+ em.radius = 2
+ em.col = 7
+ em.plist = {}
+ em.init = function()
+  for p = 1,10 do
+   make_particle(em.pos.x,em.pos.y,em.plist)
+  end
+ end
+ --em.emit = function(n,l,t,c,frvr,crndm)
+ em.emit = function(e,n)
+  for p = 1,n do
+   if not e.plist[p] then make_particle(e.pos.x,e.pos.y,e.plist) end
+   e.plist[p].accel.y = 0.01
+   e.plist[p].vel = {x=(rnd(20)-10)/100,y=(rnd(0)-3)}
+  end
+ end
+
+ em.check_dead = function(e)
+  for p = 1,#e.plist do
+   if e.plist[p].lifespan>0 then
+    e.plist[p].lifespan -= 1
+   else if e.plist[p].lifespan<1 then
+    e.plist[p].col = 6
+    e.plist[p] = nil
+   else end
+   end
+  end
+ end
+
+ em.update = function(e)
+  dbg = #e.plist
+  if #e.plist then
+   foreach(e.plist,calculate_forces)
+   foreach(e.plist,apply_veloc)
+   foreach(e.plist,wall_bounce)
+   foreach(e.plist,reset_accel)
+   e.check_dead(e)
+  end
+
+ end
+ em.draw = function(e)
+  circfill(e.pos.x,e.pos.y,e.radius,e.col)
+
+  if #e.plist > 0 then
+   for p in all(e.plist) do
+    pset(p.pos.x,p.pos.y,p.col)
+   end
+  end
+
+ end
+ add(emitter,em)
+ return em
+end
+
+function make_particle(px,py,e)
+ p = {}
+ p.pos   = {x = px,y = py}
+ p.accel = {x = 0,y = 0}
+ p.vel   = {x = 0,y = 0}
+ p.mass  = 1
+ p.drag  = 0.98
+ p.lifespan = 500
+ p.col = 0
+
+ p.check_dead = function()
+  p.lifespan -= 1
+
+  if p.lifespan < 1 then
+   p.col = 6
+   --del(e,p)
+   end
+ end
+
+ add(e,p)
+ return p
 end
 
 function _init()
- --for i = 1,1 do
- ball = make_mover(64,64,8,0)
- ball.len = 40
- ball.pos.y = ball.len
- ball.origin = {x = 64,y = 0}
- ball.ang = pi/4
- 
- ball2 = make_mover(64,64,4,0)
- ball2.len = 70
- 
- ball2.ang = pi/4
-  --end
+ make_emitter(64,64)
+
+ make_ball(64,64,5,4)
+
+ for e in all(emitter) do
+  e.init()
+  e.emit(e,10)
+ end
 end
 
+function apply_force(m,force)
+ local f = {x = force.x,
+            y = force.y}
+ f = vdiv(f, m.mass)
 
-
-function update_angle(m)
- m.angaccel = (grav / m.len / (m.mass/3)) * sin(m.ang)
- m.angvel += m.angaccel
- m.ang += m.angvel 
- dbg = m.ang
- m.angvel *= m.damping
+ m.accel = vadd(m.accel, f)
 end
 
-function update_mover(m)
- update_angle(m)
- 
- m.pos.x = m.len*sin(m.ang)
- m.pos.y = m.len*cos(m.ang)
-
- 
- 
- if m != mover[1] then
-  m.origin = mover[1].pos
- end 
- 
- m.pos = vadd(m.pos, m.origin)
+function reset_accel(m)
+ m.accel = vmult(m.accel, 0)
 end
 
+function apply_veloc(m)
+ m.vel = vadd(m.vel, m.accel)
+ m.vel = vmult(m.vel,m.drag)
+ m.pos = vadd(m.pos, m.vel)
+end
+
+function calculate_forces(m)
+ apply_force(m,grav)
+ for b in all(ball) do
+  apply_force(m,vdiv(grav,2))
+ end
+
+end
+
+function wall_bounce(m)
+ if m.pos.x >= 127.0 or
+    m.pos.x <= 0 then
+  m.vel.x *= -1
+
+ else if m.pos.y >= 127.0-m.mass or
+         m.pos.y <= 0+m.mass then
+  if(m.vel.y>0) m.pos.y = 127.0-m.mass
+  if(m.vel.y<0) m.pos.y = 0+m.mass
+  m.vel.y *= -1
+  end
+ end
+end
 
 function _update60()
- foreach(mover,update_mover) 
+ for b in all(ball) do
+  b.update(b)
+ end
+ for e in all(emitter) do
+  e.update(e)
+ end
  fr += 1
 end
 
 fr = 0
 
-function draw_mover(m) 
- line(m.origin.x,m.origin.y,m.pos.x,m.pos.y,0)
- circfill(m.pos.x,m.pos.y,m.mass,m.col) 
-end
-
-function draw_att(a)
- circfill(a.pos.x,a.pos.y,a.mass,a.col)
-end
-
 function _draw()
  cls()
  map(0,0)
- foreach(mover,draw_mover)
+
+ for b in all(ball) do
+  b.draw(b)
+ end
+
+ for e in all(emitter) do
+  e.draw(e)
+ end
+
 -- draw_att(att)
  print(dbg, 0, 120)
 end
@@ -124,21 +216,21 @@ end
 
 function vnorm(v)
  local magnitude = vmag(v)
- 
+
  if(magnitude != 0) then
   return {x = v.x/magnitude,
           y = v.y/magnitude}
  end
- 
+
  return v
 end
 __gfx__
 70000007dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 07000070dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00777700dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00777700dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00777700dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00777700dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00777700dddddddd0055550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00777700dddddddd0056650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00777700dddddddd0056650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00777700dddddddd0055550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 07000070dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 70000007dddddddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

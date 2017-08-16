@@ -7,24 +7,40 @@ pi = 3.14159
 	
 dbg = " "
 mover = {}
+obstacle = {}
 perim = 127
 
-grav = 0.1
+grav = {x = 0, y = 0.5}
+
+function make_obstacle(px,py,pw,ph,col)
+ o = {}
+ o.pos   = {x = px,y = py}
+ o.size  = {w = pw,h = ph}
+ o.vel   = {x = 0,y = 0}
+ o.col   = col
+ 
+ add(obstacle,o)
+ return o
+end
 
 function make_mover(px,py,ma,col)
- m={}
+ m = {}
  m.pos   = {x = px,y = py}
+ m.accel = {x = 0,y = 0}
  m.vel   = {x = 0,y = 0}
  m.angle = {x = 0,y = 0}
  m.mass  = ma
  m.amp   = {x = 0, y = 0}
  m.col   = col
  m.origin = {x = 0, y = 0}
+ m.anchor = {x = 0, y = 0}
+ m.restlen = 64
+ m.elast = 0.09
  m.ang = 0
  m.angvel = 0
  m.angaccel = 0
  m.len = 0
- m.damping = 0.999
+ m.damping = 0.98
  -- half-width and half-height
  -- slightly less than 0.5 so
  -- that will fit through 1-wide
@@ -38,65 +54,101 @@ function make_mover(px,py,ma,col)
 end
 
 function _init()
- --for i = 1,1 do
- ball = make_mover(64,64,8,0)
- ball.len = 40
+ local ball = make_mover(64,64,7,0)
+ ball.len = 64
  ball.pos.y = ball.len
- ball.origin = {x = 64,y = 0}
  ball.ang = pi/4
+ ball.anchor.x = 64
  
- ball2 = make_mover(64,64,4,0)
- ball2.len = 70
+ local obs = make_obstacle(0,64,5,3,10)
+ obs.vel.x = 0.7
  
- ball2.ang = pi/4
-  --end
+ --local obs2 = make_obstacle(128,64,5,3,10)
+ --obs2.vel.x = -0.2
 end
 
-
-
-function update_angle(m)
- m.angaccel = (grav / m.len / (m.mass/3)) * sin(m.ang)
- m.angvel += m.angaccel
- m.ang += m.angvel 
- dbg = m.ang
- m.angvel *= m.damping
+function apply_force(m,force)
+ local f = {x = force.x,
+            y = force.y}
+ f = vdiv(f, m.mass)
+ 
+ m.accel = vadd(m.accel, f)
 end
 
-function update_mover(m)
- update_angle(m)
- 
- m.pos.x = m.len*sin(m.ang)
- m.pos.y = m.len*cos(m.ang)
-
- 
- 
- if m != mover[1] then
-  m.origin = mover[1].pos
- end 
- 
- m.pos = vadd(m.pos, m.origin)
+function reset_accel(m)
+ m.accel = vmult(m.accel, 0)
 end
 
+function apply_veloc(m)
+ m.vel = vadd(m.vel, m.accel)
+ m.vel = vmult(m.vel,m.damping)
+ m.pos = vadd(m.pos, m.vel)
+end
+
+function calculate_forces(m)
+ local spring = vsub(m.pos,m.anchor)
+ local d = vmag(spring)
+ local stretch = d - m.restlen
+ dbg = m.pos.x.." "..m.pos.y.." "..
+       m.accel.x.." "..m.accel.y
+ spring = vnorm(spring)
+ spring = vmult(spring,-1 * m.elast * stretch)
+ 
+ --midlen(m, 5, 64)
+ 
+ apply_force(m,spring)
+ apply_force(m,grav) 
+end
+
+function check_collision()
+ for o in all(obstacle) do
+  for m in all(mover) do
+   if o.pos.x + o.size.w + o.vel.x >= m.pos.x - m.mass and
+      o.pos.x <= m.pos.x + m.mass and 
+      o.pos.y + o.size.h + o.vel.y >= m.pos.y - m.mass and
+      o.pos.y <= m.pos.y + m.mass then    
+    local force = vnorm(o.vel)
+    force = vmult(o.vel,2)
+    m.accel = vmult(m.accel,0)
+    apply_force(m,force) end
+   
+  end 
+ end
+end
+
+function move_obs(o)
+ o.pos = vadd(o.pos,o.vel)
+end
 
 function _update60()
- foreach(mover,update_mover) 
+ foreach(mover,calculate_forces)
+ foreach(mover,apply_veloc)
+ foreach(mover,reset_accel) 
+ 
+ foreach(obstacle, move_obs)
+ 
+ check_collision()
  fr += 1
 end
 
 fr = 0
 
 function draw_mover(m) 
- line(m.origin.x,m.origin.y,m.pos.x,m.pos.y,0)
+ line(m.anchor.x,m.anchor.y,m.pos.x,m.pos.y,0)
  circfill(m.pos.x,m.pos.y,m.mass,m.col) 
 end
 
-function draw_att(a)
- circfill(a.pos.x,a.pos.y,a.mass,a.col)
+function draw_obs(o)
+ rectfill(o.pos.x,o.pos.y,
+          o.pos.x + o.size.w,
+          o.pos.y + o.size.h,
+          o.col)
 end
 
 function _draw()
  cls()
  map(0,0)
+ foreach(obstacle,draw_obs)
  foreach(mover,draw_mover)
 -- draw_att(att)
  print(dbg, 0, 120)
