@@ -11,12 +11,12 @@ dbg = " "
 emitter = {}
 ball = {}
 perim = 127
-grav = {x = 0, y = -0.5}
+grav = {x = 0, y = 0.5}
 
 function make_ball(px,py,ma,c)
  b = {}
  b.pos   = {x = px,y = py}
- b.accel = {x = 0.5,y = 0}
+ b.accel = {x = 0.8,y = 0}
  b.vel   = {x = 0,y = 0}
  b.mass  = ma
  b.drag  = 0.99
@@ -30,6 +30,7 @@ function make_ball(px,py,ma,c)
 
  b.draw = function(b)
   circfill(b.pos.x,b.pos.y,b.mass,b.col)
+  line(b.pos.x,b.pos.y,b.pos.x,b.pos.y+b.mass,0)
  end
  add(ball,b)
  return b
@@ -68,7 +69,7 @@ function make_emitter(px,py)
  end
 
  em.update = function(e)
-  dbg = #e.plist
+  --dbg = #e.plist
   if #e.plist then
    foreach(e.plist,calculate_forces)
    foreach(e.plist,apply_veloc)
@@ -153,14 +154,16 @@ function calculate_forces(m)
 end
 
 function wall_bounce(m)
- if m.pos.y >= 127.0-m.mass or
-    m.pos.y <= 0+m.mass then
+ if m.pos.x >= 127.0-m.mass or
+    m.pos.x <= m.mass then
+  if(m.vel.x>0) m.pos.x = 127.0-m.mass
+  if(m.vel.x<0) m.pos.x = m.mass
   m.vel.x *= -1
-
  else if m.pos.y >= 127.0-m.mass or
-         m.pos.y <= 0+m.mass then
+         m.pos.y <= m.mass then
   if(m.vel.y>0) m.pos.y = 127.0-m.mass
-  if(m.vel.y<0) m.pos.y = 0+m.mass
+  if(m.vel.y<0) m.pos.y = m.mass
+
   m.vel.y *= -1
   end
  end
@@ -189,7 +192,7 @@ function _draw()
  for e in all(emitter) do
   e.draw(e)
  end
-
+ line(127,0,127,127,3)
 -- draw_att(att)
  print(dbg, 0, 120)
 end
