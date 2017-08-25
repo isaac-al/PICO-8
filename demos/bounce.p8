@@ -1,356 +1,89 @@
 pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
---player_physics
+-- bouncy ball demo
+-- by zep
 
-ball={}
+size  = 10
+ballx = 64
+bally = size
+floor_y = 100
 
-actor={}
-perimx = 0
-perimy = 0
-perimw = 127
-perimh = 120
-grav = {x = 0, y = 0.5}
-dbg=""
-
-pi = 3.14159
-
-function make_ball(px,py,ma,c)
- b = {}
- b.pos   = {x = px,y = py}
- b.accel = {x = 0.9,y = 0}
- b.vel   = {x = 0,y = 0}
- b.mass  = ma
- b.box   = {x = 0,y = 0,w = 0,h = 0}
- b.damping = 0.999
- b.col   = c
- b.update = function(b)
-  b.box.x = b.pos.x - b.mass
-  b.box.y = b.pos.y - b.mass
-  b.box.w = b.pos.x + b.mass
-  b.box.h = b.pos.y + b.mass
-  calculate_forces(b)
-	 apply_veloc(b)
-	 wall_bounce(b)
-	 --ball_collide(b)
-	 reset_accel(b)
- end
-
- b.draw = function(b)
-  circfill(b.pos.x,b.pos.y,b.mass,b.col)
-  pset(b.box.x,b.box.y,8)
-  pset(b.box.w,b.box.y,8)
-  pset(b.box.x,b.box.h,8)
-  pset(b.box.w,b.box.h,8)
-
-  --line(b.pos.x,b.pos.y,b.pos.x+b.mass,b.pos.y+b.mass,12)
- end
- add(ball,b)
- add(actor,b)
- return b
-end
-
-function make_weapon(px,py,pw,ph)
- w={}
- w.pos   = {x = px,y = py}
- w.size   = {x = pw,y = ph}
- w.accel = {x = 0,y = 0}
- w.vel   = {x = 0,y = 0}
- w.box   = {x = 0,y = 0,w = 0,h = 0}
- w.isleft = 1
- w.attack = false
- w.theta = 0
- origin = px,py
- w.update = function(pos,we)
-  we.pos = pos
-
-  we.box.x = we.pos.x-we.size.x*0.5
-  we.box.y = we.pos.y-we.size.y*0.5
-  we.box.w = we.pos.x+we.size.x*0.5
-  we.box.h = we.pos.y+we.size.y*0.5
-
-  if we.attack then
-   we.theta += 0.2
-   we.pos.x += we.isleft*(2*sin(we.theta) + 2)
-   if (flr(we.theta) == 1) then
-    we.attack = false
-    we.theta = 0
-   end
-  end
- end
- w.draw = function(we)
-  local xflip = false
-  if(we.isleft<0)then xflip = true
-  else xflip = false end
-  spr(2,we.pos.x+we.isleft*we.size.x*0.25 - 1,we.pos.y-(we.size.y*0.5)+1,
-      1,1,xflip,false)
-
-  pset(we.box.x,we.box.y,8)
-  pset(we.box.w,we.box.y,8)
-  pset(we.box.x,we.box.h,8)
-  pset(we.box.w,we.box.h,8)
- end
-
- --add(actor,w)
- return w
-end
-
-function make_player(px,py,pw,ph)
- pl={}
- pl.pos   = {x = px,y = py}
- pl.accel = {x = 0,y = 0}
- pl.vel   = {x = 0,y = 0}
- pl.box   = {x = 0,y = 0,w = 0,h = 0}
- pl.damping = 0.8
- pl.size  = {x = pw,y = ph}
- pl.mass  = 10
- pl.health = 100
- pl.weap = make_weapon(px,py,8,1)
- pl.update = function(p)
-  local pos = vsub(p.pos,{x=p.size.x*0.5,y=p.size.y*0.5})
-  p.box.x = p.pos.x-p.size.x*0.5
-  p.box.y = p.pos.y-p.size.y*0.5
-  p.box.w = p.pos.x+p.size.x*0.5
-  p.box.h = p.pos.y+p.size.y*0.5
-  pl.weap.update(pos,p.weap)
-  pl.input(p)
-  pl.calculate_forces(p)
-  apply_veloc(p)
-  wall_collide(p)
-  reset_accel(p)
- end
- pl.calculate_forces = function(p)
-  calculate_forces(p)
- end
- pl.input = function(p)
-  local mspeed = 1.5
-  if btn(0) then
-   apply_force(p,{x=-mspeed,y=0})
-   if(p.weap.isleft>0)p.weap.isleft*=-1
-  end
-  if btn(1) then
-   apply_force(p,{x=mspeed,y=0})
-    if(p.weap.isleft<0)p.weap.isleft*=-1
-  end
-  if btnp(5) then
-   p.weap.attack = true
-  end
- end
-
- pl.draw = function(p)
-  local offsetx=p.pos.x-(p.size.x*0.5) - 1
-  local offsety=p.pos.y-(p.size.y*0.5)
-  spr(1,offsetx,offsety)
-  pset(p.box.x,p.box.y,8)
-  pset(p.box.w,p.box.y,8)
-  pset(p.box.x,p.box.h,8)
-  pset(p.box.w,p.box.h,8)
-
-  pl.weap.draw(pl.weap)
- end
-
- --add(actor,pl)
- return pl
-end
-
-function _init()
- cls()
- player = make_player(64,perimh,4,8)
- for b = 1,4 do
-  ball1 = make_ball(rnd(115)+25,0,rnd(10)+2,7)
-  if ball
-  --ball1 = make_ball(rnd(115)+25,0,10,7)
- end
-end
-
-function wall_bounce(m)
- if m.pos.x >= perimw-m.mass or
-    m.pos.x <= perimx+m.mass then
-  if(m.vel.x>0) m.pos.x = perimw-m.mass
-  if(m.vel.x<0) m.pos.x = perimx+m.mass
-  m.vel.x *= -1
- end
- if m.pos.y >= perimh-m.mass then
-  if(m.vel.y>0) m.pos.y = perimh-m.mass
-  m.vel.y *= -1
- end
-end
-
-function box_collide()
- for a = 1,#actor do
-  for b = #actor,1,-1 do
-
-   if (actor[a] != actor[b] or pwcol) then
-    if actor[a].box.w >= actor[b].box.x and
-       actor[a].box.x <= actor[b].box.w and
-       actor[a].box.h >= actor[b].box.y and
-       actor[a].box.y <= actor[b].box.h then
-
-     --actor[a].pos = vsub(actor[a].pos,vmult(actor[a].vel,2.5))
-     --if abs(actor[a].box.x - actor[b].box.w <=
-     --actor[a].vel = vmult(actor[a].vel,-1)
-
-     local d = vsub(actor[b].pos,actor[a].pos)
-     d = vnorm(d)
-     local u = vsub(actor[a].vel,actor[b].vel)
-     ud = vcomp(u,d)
-     u = vsub(u,ud)
-     actor[a].vel = vadd(u,actor[b].vel)
-     actor[b].vel = vadd(ud,actor[b].vel)
-
-     local x = actor[a].vel.x
-     local y = actor[a].vel.y
-     local pos = vnorm(actor[a].pos)
-
-    end
-   end
-  end
- end
-end
-
-function ball_collide(b)
- if b.pos.x + b.mass >= player.pos.x - (player.size.x*0.5) and
-    b.pos.x - b.mass <= player.pos.x + (player.size.x*0.5) and
-    b.pos.y + b.mass >= player.pos.y - (player.size.y*0.5) and
-    b.pos.y - b.mass <= player.pos.y + (player.size.y*0.5) then
-  b.pos = vsub(b.pos,vmult(b.vel,2))
-  b.vel = vmult(b.vel,-1)
-  --[[local distl = b.pos.x+b.mass-player.pos.x-(player.size.x*0.5)
-  local distr = b.pos.x-b.mass-player.pos.x+(player.size.x*0.5)
-  local distu = b.pos.y+b.mass-player.pos.y-(player.size.y*0.5)
-  local distd = b.pos.y-b.mass-player.pos.y+(player.size.y*0.5)
-
-  if distr <= distu and distr <= distd or
-     distl <= distu and distl <= distd then
-   b.vel.x *= -1
-  end
-  if distu <= distl and distu <= distr or
-     distd <= distl and distd <= distr then
-   b.vel.y *= -1
-  end]]
-  --if distu <= distr and distu <= distl or
-  --   distd <= distr and distd <= distl then
-  -- b.vel.y *= -1
-
- end
-
- if b.pos.x + b.mass <= player.pos.x - (player.size.x*0.5) and
-    b.pos.x - b.mass >= player.pos.x + (player.size.x*0.5) and
-    b.pos.y + b.mass <= player.pos.y - (player.size.y*0.5) and
-    b.pos.y - b.mass >= player.pos.y + (player.size.y*0.5) then
-  player.pos = vsub(player.pos,player.vel)
- end
-end
-
-function wall_collide(p)
- if p.pos.x - (p.size.x-(p.size.x*0.5)) <= perimx or
-    p.pos.x + (p.size.x) >= perimw then
-  if(p.vel.x>0) p.pos.x = perimw-(p.size.x)
-  if(p.vel.x<0) p.pos.x = perimx+(p.size.x*0.5)
- end
- if p.pos.y - (p.size.y*0.5) <= perimy or
-    p.pos.y + (p.size.y*0.5) >= perimh then
-  if(p.vel.y>0) p.pos.y = perimh-(p.size.y*0.5)
-  if(p.vel.y<0) p.pos.y = perimy+(p.size.y*0.5)
- end
-end
-
-function calculate_forces(m)
- apply_force(m,grav)
-end
-
-function apply_force(m,force)
- local f = {x = force.x,
-            y = force.y}
- f = vdiv(f, m.mass)
-
- m.accel = vadd(m.accel, f)
-end
-
-function reset_accel(m)
- m.accel = vmult(m.accel, 0)
-end
-
-function apply_veloc(m)
- m.vel = vadd(m.vel, m.accel)
- m.vel = vmult(m.vel,m.damping)
- m.pos = vadd(m.pos, m.vel)
-end
-
-function _update()
- player.update(player)
- for b in all(ball) do
-  b.update(b)
- end
-
- box_collide()
-end
+-- starting velocity
+velx = rnd(6)-3
+vely = rnd(6)-3
 
 function _draw()
- cls()
- player.draw(player)
- for b in all(ball) do
-  b.draw(b)
-  --rect(b.pos.x-b.mass,b.pos.y-b.mass,b.pos.x+b.mass,b.pos.y+b.mass,6)
+ cls(7)
+ 
+ print("press — to bump",
+       32,10, 6)
+ 
+ rectfill(0,floor_y,127,127,8)
+ circfill(ballx,bally,size,14)
+ 
+ spr(1,ballx-4-velx, 
+       bally-4-vely)
+end
+
+function _update60()
+
+ -- move ball left/right
+
+ if ballx+velx < 0+size or
+    ballx+velx > 128-size
+ then
+  -- bounce on side!
+  velx *= -1 
+  sfx(1)
+ else
+  ballx += velx
  end
- --rect(perimx,perimy,perimw,perimh,7)
- --rect(player.pos.x,player.pos.y-player.size.y,player.pos.x+player.size.x,player.pos.y+player.size.y,6)
- --line(perimx,perimy,perimx,perimh,7)
- --line(perimx,perimy,perimw,perimy,7)
- --line(perimw,perimy,perimw,perimh,7)
- --line(perimx,perimh,perimw,perimh,7)
- print(dbg, 0, 120)
-end
+ 
+ -- move ball up/down
 
-function vadd(v1, v2)
- return {x = v1.x + v2.x,y = v1.y + v2.y}
-end
-
-function vsub(v1, v2)
- return {x = v1.x - v2.x,y = v1.y - v2.y}
-end
-
-function vmult(v, s)
- return {x = v.x*s, y = v.y*s}
-end
-
-function vdiv(v, s)
- return {x = v.x/s, y = v.y/s}
-end
-
-function vmag(v)
- return sqrt(v.x * v.x + v.y * v.y)
-end
-
-function vnorm(v)
- local magnitude = vmag(v)
-
- if(magnitude != 0) then
-  return {x = v.x/magnitude,
-          y = v.y/magnitude}
+ if bally+vely < 0+size or
+    bally+vely > floor_y-size
+ then
+  -- bounce on floor/ceiling
+  vely = vely * -0.9
+  sfx(0)
+  
+  -- if bounce was too small,
+  -- bump into air
+  if vely < 0 and
+     vely > -0.5 then
+   velx = rnd(6)-3
+   vely = -rnd(5)-4
+   sfx(3)
+  end
+  
+ else
+  bally += vely
+ end
+ 
+ -- gravity!
+ vely += 0.2
+ 
+ -- press a button to ranomly
+ -- choose a new velocity
+ if (btnp(5)) then
+  velx = rnd(6)-3
+  vely = rnd(6)-8
+  sfx(2)
  end
 
- return v
 end
 
-function vdot(v1,v2)
- return v1.x*v2.x + v1.y*v2.y
-end
-
-function vcomp(v,d)
- d = vnorm(d)
- d = vmult(d,vdot(v,d))
- return d
-end
 __gfx__
-00000000002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000002222003366666600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000002002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000002002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000ddd700000f00f000ffff00002227000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000dddddd0000ffff0001ff100022222200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+007007000dffffd00001f1f000ffff0002ffff200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000770000d5ff5d0000ffff0f222222f025ff5200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000770000dffffd0000022000022220002ffff200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700dddddddd00f2220000400400222222220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000dddddd00000200000400400022222200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000d0000d0000f000000f00f00020000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -471,7 +204,6 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-
 __gff__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -509,10 +241,10 @@ __map__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
-000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000300000f01112051180311e021280113a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000100001a76011750247300070000700007000070000700007000070000700007000070000700007000070000700007000070000700007000070000700007000070000700007000070000700007000070000700
+000400000c47011470164600f460164501b44013430164201b420184201d4202241027410164000c4000c4000f40013400114000c4000f4000f4000c400004000040000400004000040000400004000040000400
+000400000c5700c5501154018530165201f5101d50018500185001f500225001d5001f500225002b5002250029500245002450029500275002b5002b500005000050000500005000050000500005000050000500
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -638,3 +370,4 @@ __music__
 00 41424344
 00 41424344
 00 41424344
+
