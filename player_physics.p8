@@ -17,21 +17,24 @@ pi = 3.14159
 
 function make_ball(px,py,ma,c)
  b = {}
+ b.atype = "ball"
+ b.movable = true
  b.pos   = {x = px,y = py}
  b.accel = {x = 0.9,y = 0}
  b.vel   = {x = 0,y = 0}
  b.mass  = ma
+ b.size  = {x = ma*2,y = ma*2}
  b.box   = {x = 0,y = 0,w = 0,h = 0}
  b.damping = 0.999
  b.col   = c
  b.update = function(b)
-  b.box.x = b.pos.x - b.mass
-  b.box.y = b.pos.y - b.mass
-  b.box.w = b.pos.x + b.mass
-  b.box.h = b.pos.y + b.mass
+  b.box.x = b.pos.x - (b.size.x*0.5)
+  b.box.y = b.pos.y - (b.size.y*0.5)
+  b.box.w = b.pos.x + (b.size.x*0.5)
+  b.box.h = b.pos.y + (b.size.y*0.5)
   calculate_forces(b)
 	 apply_veloc(b)
-	 wall_bounce(b)
+	 wall_collide(b)
 	 --ball_collide(b)
 	 reset_accel(b)
  end
@@ -52,8 +55,10 @@ end
 
 function make_weapon(px,py,pw,ph)
  w={}
+ w.atype = "weapon"
+ w.movable = false
  w.pos   = {x = px,y = py}
- w.size   = {x = pw,y = ph}
+ w.size  = {x = pw,y = ph}
  w.accel = {x = 0,y = 0}
  w.vel   = {x = 0,y = 0}
  w.box   = {x = 0,y = 0,w = 0,h = 0}
@@ -62,12 +67,9 @@ function make_weapon(px,py,pw,ph)
  w.theta = 0
  origin = px,py
  w.update = function(pos,we)
-  we.pos = pos
-
-  we.box.x = we.pos.x-we.size.x*0.5
-  we.box.y = we.pos.y-we.size.y*0.5
-  we.box.w = we.pos.x+we.size.x*0.5
-  we.box.h = we.pos.y+we.size.y*0.5
+  we.pos.x=pos.x+we.isleft*(we.size.x*0.5)
+  we.pos.y=pos.y+1
+  --we.pos = pos
 
   if we.attack then
    we.theta += 0.2
@@ -77,26 +79,35 @@ function make_weapon(px,py,pw,ph)
     we.theta = 0
    end
   end
+  we.box.x = we.pos.x-(we.size.x*0.5)
+  we.box.y = we.pos.y-(we.size.y*0.5)
+  we.box.w = we.pos.x+(we.size.x*0.5)
+  we.box.h = we.pos.y+(we.size.y*0.5)
  end
  w.draw = function(we)
   local xflip = false
   if(we.isleft<0)then xflip = true
   else xflip = false end
-  spr(2,we.pos.x+we.isleft*we.size.x*0.25 - 1,we.pos.y-(we.size.y*0.5)+1,
-      1,1,xflip,false)
+  local offsetx=we.box.x+1--(we.size.x*0.5)
+  offsetx += we.isleft * -2
+  local offsety=we.box.y
+  spr(2,offsetx,offsety,1,1,xflip)
 
-  pset(we.box.x,we.box.y,8)
+  --[[pset(we.box.x,we.box.y,8)
   pset(we.box.w,we.box.y,8)
   pset(we.box.x,we.box.h,8)
-  pset(we.box.w,we.box.h,8)
+  pset(we.box.w,we.box.h,8)]]
+  --spr(2,64,64)
  end
 
- --add(actor,w)
+ add(actor,w)
  return w
 end
 
 function make_player(px,py,pw,ph)
  pl={}
+ pl.atype = "player"
+ pl.movable = false
  pl.pos   = {x = px,y = py}
  pl.accel = {x = 0,y = 0}
  pl.vel   = {x = 0,y = 0}
@@ -107,14 +118,15 @@ function make_player(px,py,pw,ph)
  pl.health = 100
  pl.weap = make_weapon(px,py,8,1)
  pl.update = function(p)
-  local pos = vsub(p.pos,{x=p.size.x*0.5,y=p.size.y*0.5})
-  p.box.x = p.pos.x-p.size.x*0.5
-  p.box.y = p.pos.y-p.size.y*0.5
-  p.box.w = p.pos.x+p.size.x*0.5
-  p.box.h = p.pos.y+p.size.y*0.5
-  pl.weap.update(pos,p.weap)
-  pl.input(p)
-  pl.calculate_forces(p)
+  --local pos = vadd(p.pos,{x=p.size.x*0.5+1,y=0})
+  local pos = vmult(p.pos,1)
+  p.box.x = p.pos.x-(p.size.x*0.5)
+  p.box.y = p.pos.y-(p.size.y*0.5)
+  p.box.w = p.pos.x+(p.size.x*0.5)
+  p.box.h = p.pos.y+(p.size.y*0.5)
+  p.weap.update(pos,p.weap)
+  p.input(p)
+  p.calculate_forces(p)
   apply_veloc(p)
   wall_collide(p)
   reset_accel(p)
@@ -149,109 +161,40 @@ function make_player(px,py,pw,ph)
   pl.weap.draw(pl.weap)
  end
 
- --add(actor,pl)
+ add(actor,pl)
  return pl
 end
 
 function _init()
  cls()
  player = make_player(64,perimh,4,8)
- for b = 1,4 do
+ for b = 1,1 do
   ball1 = make_ball(rnd(115)+25,0,rnd(10)+2,7)
-  if ball
+  --if ball
   --ball1 = make_ball(rnd(115)+25,0,10,7)
  end
 end
 
-function wall_bounce(m)
- if m.pos.x >= perimw-m.mass or
-    m.pos.x <= perimx+m.mass then
-  if(m.vel.x>0) m.pos.x = perimw-m.mass
-  if(m.vel.x<0) m.pos.x = perimx+m.mass
-  m.vel.x *= -1
- end
- if m.pos.y >= perimh-m.mass then
-  if(m.vel.y>0) m.pos.y = perimh-m.mass
-  m.vel.y *= -1
- end
-end
-
-function box_collide()
- for a = 1,#actor do
-  for b = #actor,1,-1 do
-
-   if (actor[a] != actor[b] or pwcol) then
-    if actor[a].box.w >= actor[b].box.x and
-       actor[a].box.x <= actor[b].box.w and
-       actor[a].box.h >= actor[b].box.y and
-       actor[a].box.y <= actor[b].box.h then
-
-     --actor[a].pos = vsub(actor[a].pos,vmult(actor[a].vel,2.5))
-     --if abs(actor[a].box.x - actor[b].box.w <=
-     --actor[a].vel = vmult(actor[a].vel,-1)
-
-     local d = vsub(actor[b].pos,actor[a].pos)
-     d = vnorm(d)
-     local u = vsub(actor[a].vel,actor[b].vel)
-     ud = vcomp(u,d)
-     u = vsub(u,ud)
-     actor[a].vel = vadd(u,actor[b].vel)
-     actor[b].vel = vadd(ud,actor[b].vel)
-
-     local x = actor[a].vel.x
-     local y = actor[a].vel.y
-     local pos = vnorm(actor[a].pos)
-
-    end
-   end
-  end
- end
-end
-
-function ball_collide(b)
- if b.pos.x + b.mass >= player.pos.x - (player.size.x*0.5) and
-    b.pos.x - b.mass <= player.pos.x + (player.size.x*0.5) and
-    b.pos.y + b.mass >= player.pos.y - (player.size.y*0.5) and
-    b.pos.y - b.mass <= player.pos.y + (player.size.y*0.5) then
-  b.pos = vsub(b.pos,vmult(b.vel,2))
-  b.vel = vmult(b.vel,-1)
-  --[[local distl = b.pos.x+b.mass-player.pos.x-(player.size.x*0.5)
-  local distr = b.pos.x-b.mass-player.pos.x+(player.size.x*0.5)
-  local distu = b.pos.y+b.mass-player.pos.y-(player.size.y*0.5)
-  local distd = b.pos.y-b.mass-player.pos.y+(player.size.y*0.5)
-
-  if distr <= distu and distr <= distd or
-     distl <= distu and distl <= distd then
-   b.vel.x *= -1
-  end
-  if distu <= distl and distu <= distr or
-     distd <= distl and distd <= distr then
-   b.vel.y *= -1
-  end]]
-  --if distu <= distr and distu <= distl or
-  --   distd <= distr and distd <= distl then
-  -- b.vel.y *= -1
-
- end
-
- if b.pos.x + b.mass <= player.pos.x - (player.size.x*0.5) and
-    b.pos.x - b.mass >= player.pos.x + (player.size.x*0.5) and
-    b.pos.y + b.mass <= player.pos.y - (player.size.y*0.5) and
-    b.pos.y - b.mass >= player.pos.y + (player.size.y*0.5) then
-  player.pos = vsub(player.pos,player.vel)
- end
-end
-
 function wall_collide(p)
- if p.pos.x - (p.size.x-(p.size.x*0.5)) <= perimx or
-    p.pos.x + (p.size.x) >= perimw then
-  if(p.vel.x>0) p.pos.x = perimw-(p.size.x)
-  if(p.vel.x<0) p.pos.x = perimx+(p.size.x*0.5)
+ local left  = p.box.x <= perimx
+ local right = p.box.w >= perimw
+ local bott  = p.box.h >= perimh
+ if left or right then
+  if (left)  p.pos.x = perimx + (p.size.x*0.5)+0.1
+  if (right) p.pos.x = perimw - (p.size.x*0.5)-0.1        
+  if p.atype != "player" and
+    p.atype != "weapon" then
+   p.vel.x *= -1
+  end 
  end
- if p.pos.y - (p.size.y*0.5) <= perimy or
-    p.pos.y + (p.size.y*0.5) >= perimh then
-  if(p.vel.y>0) p.pos.y = perimh-(p.size.y*0.5)
-  if(p.vel.y<0) p.pos.y = perimy+(p.size.y*0.5)
+ 
+ if bott then
+  p.pos.y = perimh - (p.size.y*0.5)
+  if p.atype != "player" and
+    p.atype != "weapon" then
+   p.pos.y -= 0.1 
+   p.vel.y *= -1 
+  end
  end
 end
 
@@ -266,6 +209,89 @@ function apply_force(m,force)
 
  m.accel = vadd(m.accel, f)
 end
+
+function handle_coll()
+ --only if attacking allow collision with weapon
+ for i = 1,#actor do
+  for j = #actor,1,-1 do
+  if box_coll(actor[i],actor[j]) and
+   actor[i] != actor[j] then  
+   if actor[i].atype == "ball" and actor[j].atype == "player" then 
+    actor[j].health -= actor[j].mass  
+   
+   else break
+   end
+   if actor[i].movable then
+    if is_horizontal(actor[i],actor[j]) then
+     actor[i].vel.x *= -1
+    else actor[i].vel.y *= -1 end 
+   end
+  end
+ end
+
+ --[[for i = 1,#actor do
+  for j = #actor,1,-1 do
+   if actor[i] != actor[j] then
+    if actor[i]!=player.weap and actor[j]!=player.weap or
+       actor[i]==player.weap and actor[i].attack==true or
+       actor[j]==player.weap and actor[j].attack==true then
+ 	   if box_coll(actor[i],actor[j]) then
+      if is_horizontal(actor[i],actor[j]) then
+       if actor[i].movable then
+       actor[i].pos.x -= actor[i].vel.x * 2.5
+       actor[i].vel.x *= -1 end
+      else
+       if actor[i].movable then
+       actor[i].pos.y -= actor[i].vel.y * 2.5
+       actor[i].vel.y *= -1 end
+      end
+     end
+    end
+   end
+  end
+ end]]
+
+end
+
+function is_horizontal(b1,b2)
+ local slp = b1.vel.y / b1.vel.x
+ local cx,cy
+
+ if b1.vel.x == 0 then return false
+
+ elseif b1.vel.y == 0 then return true
+
+ elseif slp > 0 and b1.vel.x > 0 then
+  --downright
+  cx = b2.box.x - b1.box.x
+  cy = b2.box.y - b1.box.y
+  return cx > 0 and cy/cx <= slp
+ elseif slp < 0 and b1.vel.x > 0 then
+  --upright
+  cx = b2.box.x - b1.box.x
+  cy = b2.box.h - b1.box.y
+  return cx > 0 and cy/cx >= slp
+ elseif slp > 0 and b1.vel.x < 0 then
+  --downleft
+  cx = b2.box.w - b1.box.x
+  cy = b2.box.h - b1.box.y
+  return cx < 0 and cy/cx <= slp
+ else
+  --upleft
+  cx = b2.box.w - b1.box.x
+  cy = b2.box.y - b1.box.y
+  return cx < 0 and cy/cx >= slp
+ end
+end
+
+function box_coll(b1,b2)
+ if b1.box.w+b1.vel.x >= b2.box.x and b1.box.x+b1.vel.x <= b2.box.w and
+    b1.box.h+b1.vel.y >= b2.box.y and b1.box.y+b1.vel.y <= b2.box.h then
+  return true
+ end
+ return false
+end
+
 
 function reset_accel(m)
  m.accel = vmult(m.accel, 0)
@@ -283,7 +309,7 @@ function _update()
   b.update(b)
  end
 
- box_collide()
+ handle_coll()
 end
 
 function _draw()
@@ -299,7 +325,7 @@ function _draw()
  --line(perimx,perimy,perimw,perimy,7)
  --line(perimw,perimy,perimw,perimh,7)
  --line(perimx,perimh,perimw,perimh,7)
- print(dbg, 0, 120)
+ print(player.health, 0, 120)
 end
 
 function vadd(v1, v2)
@@ -343,11 +369,11 @@ function vcomp(v,d)
  return d
 end
 __gfx__
-00000000002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000002222003366666600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00700700002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00077000002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000002222003366666600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00700700002222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000002002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000002002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -638,3 +664,4 @@ __music__
 00 41424344
 00 41424344
 00 41424344
+
